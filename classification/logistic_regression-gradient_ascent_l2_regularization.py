@@ -1,14 +1,15 @@
-# LOAD GRAPHLAB TO BE ABLE TO USE SFRAMES/SARRAYS
+# Load Graphlab to use SFrames/SArrays
 from __future__ import division
 import graphlab
 
-# EXAMPLE RUNS ON AN AMAZON PRODUCT REVIEW DATASET (BABY PRODUCTS)
+# DATA PREPARATION
+
+# Example runs on an Amazon baby products review dataset
 products = graphlab.SFrame('amazon_baby_subset.gl/')
 
-# APPLY TEXT CLEANING ON DATA
 # Perform some simple feature cleaning using SFrames.
-# We will not use bag-of-words features, but limit ourselves to 193 words (for simplicity).
-# We compiled a list of 193 most frequent words into a JSON file and will load these words from this JSON file.
+# For simplicity in the current example, do not use bag-of-words features, but only 193 words (for simplicity).
+# Use a compiled list of 193 most frequent words from a JSON file.
 import json
 with open('important_words.json', 'r') as f: # Reads the list of most frequent words
     important_words = json.load(f)
@@ -24,12 +25,12 @@ products['review_clean'] = products['review'].apply(remove_punctuation)
 for word in important_words:
     products[word] = products['review_clean'].apply(lambda s : s.split().count(word))
 
-# SPLIT THE DATA INTO A TRAINING AND VALIDATION SET
+# Split the data into a training and validation set.
 train_data, validation_data = products.random_split(.8, seed=2)
 print 'Training set   : %d data points' % len(train_data)
 print 'Validation set : %d data points' % len(validation_data)
 
-# CONVERT SFRAME TO NUMPY ARRAY
+# Convert SFrame to Numpy array
 import numpy as np
 def get_numpy_data(data_sframe, features, label):
     data_sframe['intercept'] = 1
@@ -43,7 +44,8 @@ def get_numpy_data(data_sframe, features, label):
 feature_matrix_train, sentiment_train = get_numpy_data(train_data, important_words, 'sentiment')
 feature_matrix_valid, sentiment_valid = get_numpy_data(validation_data, important_words, 'sentiment')
 
-# IMPLEMENT LOGISTIC REGRESSION WITH GRADIENT ASCENT AND L2 REGULARIZATION
+# MODEL IMPLEMENTATION (LOGISTIC REGRESSION WITH GRADIENT ASCENT AND L2 REGULARIZATION)
+
 #To verify the correctness of the gradient ascent algorithm, provide a function for computing log likelihood
 def compute_log_likelihood_with_L2(feature_matrix, sentiment, coefficients, l2_penalty):
     indicator = (sentiment==+1)
@@ -51,7 +53,7 @@ def compute_log_likelihood_with_L2(feature_matrix, sentiment, coefficients, l2_p
     lp = np.sum((indicator-1)*scores - np.log(1. + np.exp(-scores))) - l2_penalty*np.sum(coefficients[1:]**2)
     return lp
 
-# The logistic regression function modified to account for the L2 penalty.
+# Implement logistic regression function modified to account for the L2 penalty.
 def logistic_regression_with_L2(feature_matrix, sentiment, initial_coefficients, step_size, l2_penalty, max_iter):
     coefficients = np.array(initial_coefficients) # make sure it's a numpy array
     for itr in xrange(max_iter):
@@ -76,7 +78,9 @@ def logistic_regression_with_L2(feature_matrix, sentiment, initial_coefficients,
                 (int(np.ceil(np.log10(max_iter))), itr, lp)
     return coefficients
 
-# EXPLORE THE EFFECTS OF L2 REGULARIZATION
+# MAKE PREDICTIONS WITH THE BUILT MODEL AND EVALUATE MODEL QUALITY
+
+# Explore the effects of L2 regularization
 # run with L2 = 0
 coefficients_0_penalty = logistic_regression_with_L2(feature_matrix_train, sentiment_train,
                                                      initial_coefficients=np.zeros(194),
@@ -102,12 +106,12 @@ coefficients_1e5_penalty = logistic_regression_with_L2(feature_matrix_train, sen
                                                        initial_coefficients=np.zeros(194),
                                                        step_size=5e-6, l2_penalty=1e5, max_iter=501)
 
-# COMPARE COEFFICIENTS
 # Create a simple helper function that will help us compare coefficients in a table.
 table = graphlab.SFrame({'word': ['(intercept)'] + important_words})
 def add_coefficients_to_table(coefficients, column_name):
     table[column_name] = coefficients
     return table
+
 # Add coefficients to table
 add_coefficients_to_table(coefficients_0_penalty, 'coefficients [L2=0]')
 add_coefficients_to_table(coefficients_4_penalty, 'coefficients [L2=4]')
@@ -115,6 +119,7 @@ add_coefficients_to_table(coefficients_10_penalty, 'coefficients [L2=10]')
 add_coefficients_to_table(coefficients_1e2_penalty, 'coefficients [L2=1e2]')
 add_coefficients_to_table(coefficients_1e3_penalty, 'coefficients [L2=1e3]')
 add_coefficients_to_table(coefficients_1e5_penalty, 'coefficients [L2=1e5]')
+
 # Five most positive and negative worlds
 named_coefficients_0_penalty = add_coefficients_to_table(coefficients_0_penalty, 'coefficients [L2=0]')
 positive_words_sf = named_coefficients_0_penalty.sort('coefficients [L2=0]', ascending=False)[0:5]['word']
@@ -124,8 +129,7 @@ print negative_words_sf
 positive_words = positive_words_sf.to_numpy()
 negative_words = negative_words_sf.to_numpy()
 
-# PLOT THE COEFFICIENT PATH FOR THE FIVE MOST POSITIVE AND NEGATIVE WORDS
-# Create utility function
+# Create utility function to plot coefficient path for the five most positive and negative words.
 %matplotlib inline
 import matplotlib.pyplot as plt
 plt.rcParams['figure.figsize'] = 10, 6
@@ -164,8 +168,7 @@ def make_coefficient_plot(table, positive_words, negative_words, l2_penalty_list
 # Run function on data
 make_coefficient_plot(table, positive_words, negative_words, l2_penalty_list=[0, 4, 10, 1e2, 1e3, 1e5])
 
-# MEASURE ACCURACY
-# Create utility function
+# Measure accuracy
 def get_classification_accuracy(feature_matrix, sentiment, coefficients):
     # Create sentiment predictions
     scores = np.dot(feature_matrix, coefficients)
