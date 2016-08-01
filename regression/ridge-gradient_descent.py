@@ -4,12 +4,13 @@ import graphlab
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # DATA PREPARATION
 
-# Example is based on a housing dataset
+# Example runs on a dataset from house sales in King County, the region where the city of Seattle, WA is located.
 sales = graphlab.SFrame('kc_house_data.gl/')
 
-# Convert SFrame to Numpy array
+# Function to convert SFrame to Numpy array
 def get_numpy_data(data_sframe, features, output):
     data_sframe['constant'] = 1
     features = ['constant'] + features
@@ -18,6 +19,7 @@ def get_numpy_data(data_sframe, features, output):
     output_sarray = data_sframe[output]
     output_array = output_sarray.to_numpy()
     return(feature_matrix, output_array)
+
 
 # MODEL ESTIMATION (RIDGE REGRESSION)
 
@@ -46,6 +48,7 @@ def ridge_regression_gradient_descent(feature_matrix, output, initial_weights, s
             weights[i] = weights[i] - step_size * derivative
         iteration = iteration + 1
     return weights
+
 
 # MAKE PREDICTIONS USING SIMPLE LINEAR REGRESSION WITH AND WITHOUT L2 PENALTY
 
@@ -78,7 +81,8 @@ print ((predict_output(simple_test_feature_matrix, initial_weights) - test_outpu
 print ((predict_output(simple_test_feature_matrix, simple_weights_0_penalty) - test_output)**2).sum()
 print ((predict_output(simple_test_feature_matrix, simple_weights_high_penalty) - test_output)**2).sum()
 
-# # MAKE PREDICTIONS USING MULTIPLE LINEAR REGRESSION WITH AND WITHOUT L2 PENALTY
+
+# MAKE PREDICTIONS USING MULTIPLE LINEAR REGRESSION WITH AND WITHOUT L2 PENALTY
 
 # Feature selection and data preparation
 model_features = ['sqft_living', 'sqft_living15']

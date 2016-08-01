@@ -1,16 +1,16 @@
-﻿# EXAMPLE APPLIED TO A HOUSING DATASET
+﻿# Import graphlab to be able to use SFrame/SArray
 
 import graphlab
 import numpy as np
 
 
-# RANDOM SELECTION OF 40% OF THE FULL DATASET
+# DATA PREPARATION
 
+# The example runs on a dataset from house sales in King County,
+# the region where the city of Seattle, WA is located.
 sales = graphlab.SFrame('kc_house_data_small.gl/')
 
-
-# DEFINE FUNCTIONS FOR DATA EXTRACTION AND NORMALIZATION
-
+# Function to turn SFrame data into numpy array for analysis.
 def get_numpy_data(data_sframe, features, output):
     data_sframe['constant'] = 1
     features = ['constant'] + features
@@ -20,36 +20,35 @@ def get_numpy_data(data_sframe, features, output):
     output_array = output_sarray.to_numpy()
     return(feature_matrix, output_array)
 
+# Function  which normalizes columns of a given feature matrix.
+# The function returns a pair (normalized_features, norms), where the second item contains the norms of original features.
+# We will use these norms to normalize the test data in the same way as we normalized the training data.
 def normalize_features(feature_matrix):
     norms = np.linalg.norm(feature_matrix, axis=0)
     normalized_features = feature_matrix / norms
     return (normalized_features, norms)
 
-
-# SPLIT DATA INTO TRAINING, VALIDATION AND TEST SET
-
+# Split data into training, validation and test set.
 (train_and_validation, test) = sales.random_split(.8, seed=1)
 (train, validation) = train_and_validation.random_split(.8, seed=1)
 
-
-# EXTRACT FEATURES AND NORMALIZE
-
-feature_list = ['bedrooms',  
-                'bathrooms',  
-                'sqft_living',  
-                'sqft_lot',  
+# Extract features and normalize
+feature_list = ['bedrooms',
+                'bathrooms',
+                'sqft_living',
+                'sqft_lot',
                 'floors',
-                'waterfront',  
-                'view',  
-                'condition',  
-                'grade',  
-                'sqft_above',  
+                'waterfront',
+                'view',
+                'condition',
+                'grade',
+                'sqft_above',
                 'sqft_basement',
-                'yr_built',  
-                'yr_renovated',  
-                'lat',  
-                'long',  
-                'sqft_living15',  
+                'yr_built',
+                'yr_renovated',
+                'lat',
+                'long',
+                'sqft_living15',
                 'sqft_lot15']
 
 features_train, output_train = get_numpy_data(train, feature_list, 'price')
@@ -61,39 +60,35 @@ features_test = features_test / norms # normalize test set by training set norms
 features_valid = features_valid / norms # normalize validation set by training set norms
 
 
-# FOR FUN: FUNCTION TO CALCULATE DISTANCE FROM ONE QUERY HOUSE TO ALL TRAINING HOUSES.
+# PERFORM 1-NEAREST NEIGHBOR REGRESSION
 
+# Function to calculate distance from one query house to all training houses.
 def euclid_distance(feature_matrix, query_vector):
     diff = feature_matrix[0:len(feature_matrix)] - query_vector
     distances = np.sqrt(np.sum(diff**2, axis=1))
     return distances
 
-# Find closest one
-
 nearest_neighbour_distance = euclid_distance(features_train, features_test[2])
+print min(nearest_neighbour_distance)
 min_distance_index, min_distance = min(enumerate(nearest_neighbour_distance), key=lambda p: p[1])
 print min_distance_index, min_distance
 
 
 # PERFORM K-NEAREST NEIGHBOR REGRESSION
 
-# FETCH K-NEAREST NEIGHBORS
-
+# Fetch k-nearest neighbours.
 def k_nearest_neighbors(k, feature_matrix, query_vector):
     diff = feature_matrix[0:len(feature_matrix)] - query_vector
     distances = np.sqrt(np.sum(diff**2, axis=1))
     k_nearest = np.argpartition(distances, k)[:k]
     return k_nearest
 
-# Note: np.argpartition guarantees that the kth element is in sorted position and all smaller elements will be moved before it. 
+# Note: np.argpartition guarantees that the kth element is in sorted position and all smaller elements will be moved before it.
 # ...Thus the first k elements will be the k-smallest elements.
 # ...It does not sort the entire array!
-
 k_nearest_neighbors(4, features_train, features_test[2])
 
-
-# MAKE A PREDICTION ON A SINGLE QUERY
-
+# Make a prediction on a single query.
 def predict_output(k, feature_matrix, output, query_vector):
     k_nearest = k_nearest_neighbors(k, feature_matrix, query_vector)
     yhat = output[k_nearest].mean()
@@ -101,9 +96,7 @@ def predict_output(k, feature_matrix, output, query_vector):
 
 predict_output(4, features_train, output_train, features_test[2])
 
-
-# MAKE PREDICTIONS ON MULTIPLE QUERIES
-
+# Make predictions on multiple queries.
 def predict_output(k, feature_matrix, output, query_feature_matrix):
     yhat_list = []
     for i in xrange(len(query_feature_matrix)):
@@ -114,18 +107,14 @@ def predict_output(k, feature_matrix, output, query_feature_matrix):
 
 predict_output(10, features_train, output_train, features_test[0:10])
 
-
-# CHOOSING THE BEST VALUE OF K USING A VALIDATION SET
-
+# Choosing the best value of k using a validation set
 rss_all = []
 for k in xrange(1,16):
     yhat = predict_output(k, features_train, output_train, features_valid)
     rss_all.append(((yhat - output_valid)**2).sum())
 print rss_all
 
-
 # To visualize the performance as a function of k, plot the RSS on the VALIDATION set for each considered k value:
-
 %matplotlib inline
 import matplotlib.pyplot as plt
 
